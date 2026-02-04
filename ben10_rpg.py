@@ -7,6 +7,7 @@ import textwrap
 
 
 LINE = "-" * 72
+VERSION = "1.0"
 
 
 def wrap(text: str) -> str:
@@ -56,7 +57,7 @@ def prompt_yes_no(prompt: str) -> bool:
 
 def intro() -> None:
     print(LINE)
-    print("BEN 10: OMNITRIX CHRONICLES")
+    print(f"BEN 10: OMNITRIX CHRONICLES (Version {VERSION})")
     print(LINE)
     print(wrap(
         "A strange surge of energy hits Bellwood. The Omnitrix is unstable, and "
@@ -100,23 +101,69 @@ def choose_background() -> dict:
     print(f"Bonuses: {details['bonuses']}")
     return {"name": choice, **details}
 
+def choose_origin() -> dict:
+    origins = {
+        "Human": {
+            "description": "Earth-born with a knack for adapting to chaos.",
+            "bonuses": {"Willpower": 1, "Tactics": 1},
+            "feature": "Adaptive: reroll one failed check per session.",
+        },
+        "Half-Alien": {
+            "description": "Mixed heritage grants unusual resilience and insight.",
+            "bonuses": {"Stamina": 1, "Empathy": 1},
+            "feature": "Hybrid Instinct: resistance to fatigue effects.",
+        },
+        "Alien": {
+            "description": "A visitor to Earth with unique biology and perspective.",
+            "bonuses": {"Knowledge": 1, "Tech": 1},
+            "feature": "Outworlder: gain advantage on alien-tech checks.",
+        },
+    }
+    print("Choose your origin:")
+    choice = prompt_choice("", list(origins.keys()))
+    details = origins[choice]
+    print(wrap(details["description"]))
+    print(f"Bonus: {details['bonuses']} | Feature: {details['feature']}")
+    return {"name": choice, **details}
+
+
+def choose_stat_profile() -> dict:
+    profiles = {
+        "Rookie (base 2, pool 10, cap 7)": {"base": 2, "pool": 10, "cap": 7},
+        "Standard (base 3, pool 12, cap 8)": {"base": 3, "pool": 12, "cap": 8},
+        "Heroic (base 4, pool 14, cap 9)": {"base": 4, "pool": 14, "cap": 9},
+        "Custom": {"base": 3, "pool": 12, "cap": 8},
+    }
+    print(LINE)
+    print("Choose your stat allocation profile.")
+    choice = prompt_choice("", list(profiles.keys()))
+    if choice != "Custom":
+        return profiles[choice]
+    base = prompt_int("Custom base value per stat", 1, 5)
+    pool = prompt_int("Custom points to distribute", 4, 20)
+    cap = prompt_int("Custom per-stat cap", max(base + 2, 5), 10)
+    return {"base": base, "pool": pool, "cap": cap}
+
 
 def allocate_stats() -> dict:
+    profile = choose_stat_profile()
     stats = {
-        "Strength": 3,
-        "Agility": 3,
-        "Stamina": 3,
-        "Tech": 3,
-        "Willpower": 3,
-        "Knowledge": 3,
-        "Empathy": 3,
-        "Tactics": 3,
+        "Strength": profile["base"],
+        "Agility": profile["base"],
+        "Stamina": profile["base"],
+        "Tech": profile["base"],
+        "Willpower": profile["base"],
+        "Knowledge": profile["base"],
+        "Empathy": profile["base"],
+        "Tactics": profile["base"],
     }
-    pool = 12
+    pool = profile["pool"]
+    cap = profile["cap"]
     print(LINE)
     print("Allocate your core stats.")
     print(wrap(
-        "Each stat starts at 3. You have 12 points to distribute. Max 8 per stat."
+        f"Each stat starts at {profile['base']}. You have {pool} points to "
+        f"distribute. Max {cap} per stat."
     ))
     print("Stats: Strength, Agility, Stamina, Tech, Willpower, Knowledge, Empathy, Tactics")
     while pool > 0:
@@ -124,7 +171,7 @@ def allocate_stats() -> dict:
         for name, value in stats.items():
             print(f"  {name}: {value}")
         stat_name = prompt_choice("Pick a stat to increase", list(stats.keys()))
-        max_add = min(8 - stats[stat_name], pool)
+        max_add = min(cap - stats[stat_name], pool)
         if max_add == 0:
             print("That stat is already at max.")
             continue
@@ -160,6 +207,30 @@ def choose_quirks() -> list[str]:
     return chosen
 
 
+def choose_focuses() -> list[str]:
+    focuses = [
+        "Leadership",
+        "Engineering",
+        "Survival",
+        "Investigation",
+        "Diplomacy",
+        "Stealth",
+        "Athletics",
+        "First Aid",
+        "Alien Lore",
+        "Driving",
+    ]
+    chosen = []
+    print(LINE)
+    print("Choose two focus skills to define your specialties.")
+    while len(chosen) < 2:
+        remaining = [focus for focus in focuses if focus not in chosen]
+        pick = prompt_choice("Select a focus", remaining)
+        chosen.append(pick)
+        print(f"Added: {pick}")
+    return chosen
+
+
 def choose_starting_gear() -> list[str]:
     gear_options = [
         "Plumber Badge (access to Plumber channels)",
@@ -180,6 +251,30 @@ def choose_starting_gear() -> list[str]:
     return chosen
 
 
+def choose_alien_roster() -> list[str]:
+    aliens = {
+        "Heatblast": "Pyrokinetic alien with ranged fire control.",
+        "Four Arms": "Heavy-hitter with immense strength and grappling power.",
+        "XLR8": "Super-speed scout with rapid strikes.",
+        "Diamondhead": "Crystal armor and projectile control.",
+        "Grey Matter": "Genius-level intellect and small size.",
+        "Cannonbolt": "Rolling tank form with impact damage.",
+        "Wildvine": "Plant-based control with entangling vines.",
+        "Upgrade": "Tech-merging alien that enhances devices.",
+        "Ripjaws": "Aquatic predator with underwater dominance.",
+        "Ghostfreak": "Phasing stealth alien with eerie mobility.",
+    }
+    chosen = []
+    print(LINE)
+    print("Select three starting aliens for your Omnitrix playlist.")
+    while len(chosen) < 3:
+        remaining = [name for name in aliens.keys() if name not in chosen]
+        pick = prompt_choice("Choose an alien", remaining)
+        chosen.append(pick)
+        print(wrap(f"{pick}: {aliens[pick]}"))
+    return chosen
+
+
 def choose_omnitrix_mode() -> str:
     options = [
         "Proto-Omnitrix (unstable, high risk/high reward)",
@@ -194,14 +289,16 @@ def choose_omnitrix_mode() -> str:
 def build_character() -> dict:
     print(LINE)
     name = input("Enter your hero name: ").strip() or "Nova"
-    origin = prompt_choice("Choose your origin", ["Human", "Half-Alien", "Alien"])
+    origin = choose_origin()
     print(LINE)
     background = choose_background()
     stats = allocate_stats()
-    for stat, bonus in background["bonuses"].items():
+    for stat, bonus in {**background["bonuses"], **origin["bonuses"]}.items():
         stats[stat] = min(10, stats[stat] + bonus)
     quirks = choose_quirks()
+    focuses = choose_focuses()
     gear = choose_starting_gear()
+    aliens = choose_alien_roster()
     omnitrix = choose_omnitrix_mode()
 
     print(LINE)
@@ -213,7 +310,9 @@ def build_character() -> dict:
         "Origin": origin,
         "Background": background["name"],
         "Quirks": quirks,
+        "Focuses": focuses,
         "Gear": gear,
+        "Aliens": aliens,
         "Omnitrix": omnitrix,
         "Signature Move": signature_move or "None",
         "Stats": stats,
@@ -226,13 +325,23 @@ def show_profile(profile: dict) -> None:
     print("YOUR HERO PROFILE")
     print(LINE)
     for key in ["Name", "Origin", "Background", "Omnitrix", "Signature Move"]:
-        print(f"{key}: {profile[key]}")
+        value = profile[key]
+        if isinstance(value, dict):
+            value = value["name"]
+        print(f"{key}: {value}")
+    print(f"Origin Feature: {profile['Origin']['feature']}")
     print("Quirks:")
     for quirk in profile["Quirks"]:
         print(f"  - {quirk}")
     print("Gear:")
     for item in profile["Gear"]:
         print(f"  - {item}")
+    print("Focus Skills:")
+    for focus in profile["Focuses"]:
+        print(f"  - {focus}")
+    print("Starting Aliens:")
+    for alien in profile["Aliens"]:
+        print(f"  - {alien}")
     print("Stats:")
     for stat, value in profile["Stats"].items():
         print(f"  {stat}: {value}")

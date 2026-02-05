@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import random
 import textwrap
 
 
@@ -36,6 +37,11 @@ class GameUI:
     def menu(self, title: str, options: list[str]) -> str:
         self.section(title)
         return prompt_choice("", options)
+
+    def banner(self, text: str) -> None:
+        self.divider()
+        print(text.center(self.width))
+        self.divider()
 
 
 UI = GameUI()
@@ -478,6 +484,16 @@ def build_player_profile(profile: dict) -> dict:
     profile["Resources"] = derived
     profile["Experience"] = 0
     profile["Level"] = 1
+    profile["Reputation"] = {"Plumbers": 0, "Bellwood": 0, "Underground": 0}
+    profile["Inventory"] = [
+        "Omnitrix Core",
+        "Casual Outfit",
+        "Snack Bar",
+    ]
+    profile["Active Missions"] = []
+    profile["Completed Missions"] = 0
+    profile["Day"] = 1
+    profile["Time"] = "Morning"
     return profile
 
 
@@ -519,27 +535,49 @@ def build_world() -> dict:
     return {
         "Bellwood": {
             "desc": "Home streets, familiar faces, and hidden threats.",
-            "connections": ["Rustbucket", "Plumber HQ", "Downtown", "Lake Park"],
+            "connections": [
+                "Rustbucket",
+                "Plumber HQ",
+                "Downtown",
+                "Lake Park",
+                "Grocery Strip",
+            ],
+            "shops": ["Snack Stand"],
         },
         "Rustbucket": {
             "desc": "Max's RV and the team's mobile base.",
             "connections": ["Bellwood", "Plumber HQ"],
+            "shops": ["Mobile Salvage"],
         },
         "Plumber HQ": {
             "desc": "Secure hub for Plumber operations and intel.",
             "connections": ["Rustbucket", "Bellwood", "Null Void Gate"],
+            "shops": ["Plumber Supply"],
         },
         "Downtown": {
             "desc": "Crowded city center with tech shops and chaos.",
-            "connections": ["Bellwood", "Lake Park"],
+            "connections": ["Bellwood", "Lake Park", "Tech Market"],
+            "shops": ["Tech Market"],
         },
         "Lake Park": {
             "desc": "Quiet trails hiding strange energy readings.",
             "connections": ["Bellwood", "Downtown"],
+            "shops": ["Park Kiosk"],
+        },
+        "Grocery Strip": {
+            "desc": "A row of corner stores with local rumors.",
+            "connections": ["Bellwood"],
+            "shops": ["Corner Mart"],
+        },
+        "Tech Market": {
+            "desc": "A neon corridor packed with gadgets and smugglers.",
+            "connections": ["Downtown"],
+            "shops": ["Black Box Dealer", "Repair Bay"],
         },
         "Null Void Gate": {
             "desc": "A volatile portal to the Null Void.",
             "connections": ["Plumber HQ"],
+            "shops": [],
         },
     }
 
@@ -584,6 +622,67 @@ def random_event_table() -> list[dict]:
     ]
 
 
+def mission_templates() -> list[dict]:
+    return [
+        {
+            "name": "Contain the Drone Swarm",
+            "location": "Downtown",
+            "reward": {"Credits": 20, "Reputation": ("Plumbers", 1)},
+            "difficulty": 2,
+            "summary": "A wave of rogue drones is harassing civilians.",
+        },
+        {
+            "name": "Trace the Signal Leak",
+            "location": "Tech Market",
+            "reward": {"Credits": 15, "Reputation": ("Underground", 1)},
+            "difficulty": 2,
+            "summary": "A scrambled alien signal is leaking from the market.",
+        },
+        {
+            "name": "Escort the Plumber Courier",
+            "location": "Bellwood",
+            "reward": {"Credits": 10, "Reputation": ("Plumbers", 1)},
+            "difficulty": 1,
+            "summary": "Protect a courier moving sensitive data.",
+        },
+        {
+            "name": "Investigate Lake Park",
+            "location": "Lake Park",
+            "reward": {"Credits": 12, "Reputation": ("Bellwood", 1)},
+            "difficulty": 1,
+            "summary": "Strange energy readings are spiking by the lake.",
+        },
+        {
+            "name": "Close the Null Void Rift",
+            "location": "Null Void Gate",
+            "reward": {"Credits": 30, "Reputation": ("Plumbers", 2)},
+            "difficulty": 3,
+            "summary": "A minor rift is destabilizing the gate.",
+        },
+        {
+            "name": "Recover Lost Plumber Tech",
+            "location": "Grocery Strip",
+            "reward": {"Credits": 18, "Reputation": ("Bellwood", 1)},
+            "difficulty": 1,
+            "summary": "Find missing tech stashed near local shops.",
+        },
+    ]
+
+
+def generate_mission(day: int, seed_offset: int = 0) -> dict:
+    templates = mission_templates()
+    random.seed(day * 100 + seed_offset)
+    template = random.choice(templates)
+    return {
+        "name": template["name"],
+        "location": template["location"],
+        "reward": template["reward"],
+        "difficulty": template["difficulty"],
+        "summary": template["summary"],
+        "status": "Available",
+    }
+
+
 def roll_event_index(seed: int, size: int) -> int:
     return seed % size
 
@@ -600,9 +699,22 @@ def resolve_random_event(state: dict, location: str) -> None:
 
 def show_player_profile(profile: dict) -> None:
     UI.section("Player Profile")
-    print(f"Level: {profile['Level']} | XP: {profile['Experience']}")
+    print(
+        f"Level: {profile['Level']} | XP: {profile['Experience']} | "
+        f"Day: {profile['Day']} ({profile['Time']})"
+    )
     for name, value in profile["Resources"].items():
         print(f"{name}: {value}")
+    print("Reputation:")
+    for faction, value in profile["Reputation"].items():
+        print(f"  {faction}: {value}")
+    print("Inventory:")
+    for item in profile["Inventory"]:
+        print(f"  - {item}")
+    if profile["Active Missions"]:
+        print("Active Missions:")
+        for mission in profile["Active Missions"]:
+            print(f"  - {mission['name']} ({mission['status']})")
     print("Abilities:")
     for ability in profile["Abilities"]:
         print(f"  - {ability}")
@@ -617,11 +729,130 @@ def show_location(world: dict, current: str) -> None:
     print("Connections:")
     for idx, dest in enumerate(world[current]["connections"], start=1):
         print(f"  {idx}. {dest}")
+    shops = world[current].get("shops", [])
+    if shops:
+        print("Shops:")
+        for shop in shops:
+            print(f"  - {shop}")
 
 
 def choose_location(world: dict, current: str) -> str:
     options = world[current]["connections"]
     return prompt_choice("Travel to:", options)
+
+
+def show_map(world: dict) -> None:
+    UI.section("World Map")
+    for location, details in world.items():
+        connections = ", ".join(details["connections"])
+        print(f"{location}: {connections}")
+
+
+def get_shop_inventory(shop: str) -> dict:
+    inventories = {
+        "Snack Stand": {"Energy Drink": 5, "Chili Fries": 6},
+        "Mobile Salvage": {"Spare Parts": 8, "Omni-Tool": 15},
+        "Plumber Supply": {"Plumber Medkit": 12, "Containment Net": 14},
+        "Tech Market": {"Signal Jammer": 18, "Drone Lure": 10},
+        "Park Kiosk": {"Trail Mix": 4, "Calming Tea": 5},
+        "Corner Mart": {"Bandages": 6, "Flashlight": 7},
+        "Black Box Dealer": {"Encrypted Chip": 20, "Pulse Grenade": 22},
+        "Repair Bay": {"Armor Patch": 9, "Battery Pack": 11},
+    }
+    return inventories.get(shop, {})
+
+
+def shop_at_location(profile: dict, world: dict, current: str) -> None:
+    shops = world[current].get("shops", [])
+    if not shops:
+        print("No shops available here.")
+        return
+    shop = prompt_choice("Choose a shop", shops)
+    inventory = get_shop_inventory(shop)
+    if not inventory:
+        print("This shop is out of stock.")
+        return
+    while True:
+        UI.section(f"Shopping: {shop}")
+        print(f"Credits: {profile['Resources']['Credits']}")
+        options = [f"{item} ({cost} credits)" for item, cost in inventory.items()]
+        options.append("Leave shop")
+        choice = prompt_choice("", options)
+        if choice == "Leave shop":
+            break
+        item_name = choice.split(" (")[0]
+        cost = inventory[item_name]
+        if profile["Resources"]["Credits"] < cost:
+            print("Not enough credits.")
+            continue
+        profile["Resources"]["Credits"] -= cost
+        profile["Inventory"].append(item_name)
+        print(f"Purchased: {item_name}")
+
+
+def take_job(profile: dict, world: dict) -> None:
+    UI.section("Mission Board")
+    board = [generate_mission(profile["Day"], offset) for offset in range(3)]
+    for idx, mission in enumerate(board, start=1):
+        print(f"{idx}. {mission['name']} ({mission['location']})")
+        print(wrap(f"   {mission['summary']}"))
+        print(f"   Difficulty: {mission['difficulty']} | Reward: {mission['reward']}")
+    options = [mission["name"] for mission in board] + ["Leave board"]
+    choice = prompt_choice("Accept a mission?", options)
+    if choice == "Leave board":
+        return
+    selected = next(mission for mission in board if mission["name"] == choice)
+    selected["status"] = "Accepted"
+    profile["Active Missions"].append(selected)
+    print("Mission accepted.")
+
+
+def attempt_mission(profile: dict, current: str) -> None:
+    available = [
+        mission for mission in profile["Active Missions"]
+        if mission["location"] == current and mission["status"] == "Accepted"
+    ]
+    if not available:
+        print("No active missions at this location.")
+        return
+    mission = available[0]
+    UI.section(f"Mission: {mission['name']}")
+    difficulty = mission["difficulty"]
+    score = profile["Skills"]["Tactics"] + profile["Skills"]["Brawl"]
+    threshold = 10 + difficulty * 2
+    print(wrap(mission["summary"]))
+    print(f"Mission check: {score} vs {threshold}")
+    if score >= threshold:
+        print("Mission success!")
+        profile["Active Missions"].remove(mission)
+        profile["Completed Missions"] += 1
+        profile["Experience"] += 10 + difficulty * 2
+        profile["Resources"]["Credits"] += mission["reward"]["Credits"]
+        faction, rep = mission["reward"]["Reputation"]
+        profile["Reputation"][faction] += rep
+    else:
+        print("Mission setback. You regroup and try again later.")
+        profile["Resources"]["Energy"] = max(0, profile["Resources"]["Energy"] - 2)
+
+
+def work_part_time(profile: dict) -> None:
+    UI.section("Part-time Work")
+    earnings = 5 + profile["Skills"]["Empathy"]
+    profile["Resources"]["Credits"] += earnings
+    profile["Resources"]["Energy"] = max(0, profile["Resources"]["Energy"] - 1)
+    profile["Experience"] += 2
+    print(f"You earn {earnings} credits helping the community.")
+
+
+def advance_time(profile: dict) -> None:
+    cycle = ["Morning", "Afternoon", "Evening"]
+    current_idx = cycle.index(profile["Time"])
+    if current_idx == len(cycle) - 1:
+        profile["Day"] += 1
+        profile["Time"] = cycle[0]
+        print("A new day begins.")
+    else:
+        profile["Time"] = cycle[current_idx + 1]
 
 
 def choose_training(profile: dict) -> None:
@@ -672,12 +903,25 @@ def play_game(profile: dict) -> None:
     current_location = "Bellwood"
     turn = 1
     while True:
+        UI.banner(f"Day {profile['Day']} - {profile['Time']} | {current_location}")
         UI.title(f"Turn {turn}: {current_location}")
         show_location(world, current_location)
         show_player_profile(profile)
         action = UI.menu(
             "Choose an action",
-            ["Travel", "Investigate (random event)", "Train", "Rest", "End Adventure"],
+            [
+                "Travel",
+                "Investigate (random event)",
+                "Train",
+                "Rest",
+                "Shop",
+                "Take Mission",
+                "Attempt Mission",
+                "Work Part-time",
+                "View Map",
+                "End Day",
+                "End Adventure",
+            ],
         )
         if action == "Travel":
             current_location = choose_location(world, current_location)
@@ -688,10 +932,24 @@ def play_game(profile: dict) -> None:
             choose_training(profile)
         elif action == "Rest":
             rest(profile)
+        elif action == "Shop":
+            shop_at_location(profile, world, current_location)
+        elif action == "Take Mission":
+            take_job(profile, world)
+        elif action == "Attempt Mission":
+            attempt_mission(profile, current_location)
+        elif action == "Work Part-time":
+            work_part_time(profile)
+        elif action == "View Map":
+            show_map(world)
+        elif action == "End Day":
+            advance_time(profile)
         else:
             UI.section("Adventure Ended")
             print("Thanks for playing!")
             break
+        if action != "End Day":
+            advance_time(profile)
         apply_level_up(profile)
         turn += 1
 

@@ -10,8 +10,35 @@ LINE = "-" * 72
 VERSION = "1.0"
 
 
+class GameUI:
+    def __init__(self) -> None:
+        self.width = 72
+
+    def divider(self) -> None:
+        print(LINE)
+
+    def title(self, text: str) -> None:
+        self.divider()
+        print(text)
+        self.divider()
+
+    def section(self, text: str) -> None:
+        print()
+        print(text.upper())
+        self.divider()
+
+    def wrap(self, text: str) -> str:
+        return "\n".join(textwrap.wrap(text, width=self.width))
+
+    def pause(self) -> None:
+        input("\nPress Enter to continue...")
+
+
+UI = GameUI()
+
+
 def wrap(text: str) -> str:
-    return "\n".join(textwrap.wrap(text, width=72))
+    return UI.wrap(text)
 
 
 def prompt_choice(prompt: str, options: list[str]) -> str:
@@ -56,15 +83,13 @@ def prompt_yes_no(prompt: str) -> bool:
 
 
 def intro() -> None:
-    print(LINE)
-    print(f"BEN 10: OMNITRIX CHRONICLES (Version {VERSION})")
-    print(LINE)
+    UI.title(f"BEN 10: OMNITRIX CHRONICLES (Version {VERSION})")
     print(wrap(
         "A strange surge of energy hits Bellwood. The Omnitrix is unstable, and "
         "only a new hero can stabilize it. Build your character, step into the "
         "Ben 10 universe, and decide what kind of legend you'll become."
     ))
-    print(LINE)
+    UI.divider()
 
 
 def choose_background() -> dict:
@@ -72,34 +97,65 @@ def choose_background() -> dict:
         "Plumber Cadet": {
             "description": "Trained by the Plumbers, you know protocols and tech.",
             "bonuses": {"Tech": 2, "Tactics": 1},
+            "subtypes": [
+                "Field Operations",
+                "Tech Response",
+                "Recon Specialist",
+            ],
         },
         "Road Trip Survivor": {
             "description": "You grew up on the road and learned to improvise.",
             "bonuses": {"Agility": 1, "Willpower": 2},
+            "subtypes": [
+                "Rustbucket Mechanic",
+                "Campfire Storyteller",
+                "Emergency Navigator",
+            ],
         },
         "Alien Exchange Student": {
             "description": "You came to Earth to study humanity and its quirks.",
             "bonuses": {"Empathy": 2, "Knowledge": 1},
+            "subtypes": [
+                "Cultural Ambassador",
+                "Linguistics Adept",
+                "Curiosity Seeker",
+            ],
         },
         "Bellwood Athlete": {
             "description": "A local sports star with raw physical talent.",
             "bonuses": {"Strength": 2, "Stamina": 1},
+            "subtypes": [
+                "Track Star",
+                "Combat Sports",
+                "Team Captain",
+            ],
         },
         "Tinkerer": {
             "description": "You build devices from scrap and curiosity.",
             "bonuses": {"Tech": 1, "Knowledge": 2},
+            "subtypes": [
+                "Gadgeteer",
+                "Salvage Engineer",
+                "Prototype Tester",
+            ],
         },
         "Mystic Apprentice": {
             "description": "You studied hidden arts and learned calm focus.",
             "bonuses": {"Willpower": 2, "Empathy": 1},
+            "subtypes": [
+                "Ward Keeper",
+                "Runes Scholar",
+                "Astral Seeker",
+            ],
         },
     }
-    print("Choose your background:")
+    UI.section("Choose your background")
     choice = prompt_choice("", list(backgrounds.keys()))
     details = backgrounds[choice]
     print(wrap(details["description"]))
     print(f"Bonuses: {details['bonuses']}")
-    return {"name": choice, **details}
+    subtype = prompt_choice("Select a background specialty", details["subtypes"])
+    return {"name": choice, "subtype": subtype, **details}
 
 def choose_origin() -> dict:
     origins = {
@@ -119,12 +175,27 @@ def choose_origin() -> dict:
             "feature": "Outworlder: gain advantage on alien-tech checks.",
         },
     }
-    print("Choose your origin:")
+    UI.section("Choose your origin")
     choice = prompt_choice("", list(origins.keys()))
     details = origins[choice]
     print(wrap(details["description"]))
     print(f"Bonus: {details['bonuses']} | Feature: {details['feature']}")
-    return {"name": choice, **details}
+    if choice == "Alien":
+        subspecies = prompt_choice(
+            "Select your alien lineage",
+            ["Galvan", "Tetramand", "Pyronite", "Kineceleran", "Petrosapien"],
+        )
+    elif choice == "Half-Alien":
+        subspecies = prompt_choice(
+            "Select your mixed heritage",
+            ["Anodite", "Osmosian", "Lenopan", "Vulpimancer", "Loboan"],
+        )
+    else:
+        subspecies = prompt_choice(
+            "Select your human upbringing",
+            ["Bellwood Local", "Rural Traveler", "City Techie", "Coastal Nomad"],
+        )
+    return {"name": choice, "subspecies": subspecies, **details}
 
 
 def choose_stat_profile() -> dict:
@@ -134,8 +205,7 @@ def choose_stat_profile() -> dict:
         "Heroic (base 4, pool 14, cap 9)": {"base": 4, "pool": 14, "cap": 9},
         "Custom": {"base": 3, "pool": 12, "cap": 8},
     }
-    print(LINE)
-    print("Choose your stat allocation profile.")
+    UI.section("Choose your stat allocation profile")
     choice = prompt_choice("", list(profiles.keys()))
     if choice != "Custom":
         return profiles[choice]
@@ -197,8 +267,7 @@ def choose_quirks() -> list[str]:
         "Bold Leader",
     ]
     chosen = []
-    print(LINE)
-    print("Pick two personality quirks (they shape story choices).")
+    UI.section("Pick two personality quirks (they shape story choices)")
     while len(chosen) < 2:
         remaining = [q for q in quirks if q not in chosen]
         pick = prompt_choice("Select a quirk", remaining)
@@ -221,8 +290,7 @@ def choose_focuses() -> list[str]:
         "Driving",
     ]
     chosen = []
-    print(LINE)
-    print("Choose two focus skills to define your specialties.")
+    UI.section("Choose two focus skills to define your specialties")
     while len(chosen) < 2:
         remaining = [focus for focus in focuses if focus not in chosen]
         pick = prompt_choice("Select a focus", remaining)
@@ -241,8 +309,7 @@ def choose_starting_gear() -> list[str]:
         "Custom Communicator (encrypted)",
     ]
     chosen = []
-    print(LINE)
-    print("Choose two starting gear items:")
+    UI.section("Choose two starting gear items")
     while len(chosen) < 2:
         remaining = [item for item in gear_options if item not in chosen]
         pick = prompt_choice("Select gear", remaining)
@@ -265,8 +332,7 @@ def choose_alien_roster() -> list[str]:
         "Ghostfreak": "Phasing stealth alien with eerie mobility.",
     }
     chosen = []
-    print(LINE)
-    print("Select three starting aliens for your Omnitrix playlist.")
+    UI.section("Select three starting aliens for your Omnitrix playlist")
     while len(chosen) < 3:
         remaining = [name for name in aliens.keys() if name not in chosen]
         pick = prompt_choice("Choose an alien", remaining)
@@ -275,14 +341,126 @@ def choose_alien_roster() -> list[str]:
     return chosen
 
 
+def choose_goal() -> str:
+    goals = [
+        "Stabilize the Omnitrix",
+        "Find a missing Plumber",
+        "Protect Bellwood",
+        "Redeem a former rival",
+        "Recover lost alien tech",
+        "Prove yourself to the Plumbers",
+    ]
+    UI.section("Choose your personal goal")
+    return prompt_choice("", goals)
+
+
+def choose_flaw() -> str:
+    flaws = [
+        "Overconfident",
+        "Impulsive",
+        "Distrustful",
+        "Stubborn",
+        "Easily Distracted",
+        "Too Protective",
+    ]
+    UI.section("Choose one core flaw (for drama)")
+    return prompt_choice("", flaws)
+
+
+def choose_ally() -> str:
+    allies = [
+        "Plumber Handler",
+        "Classmate Sidekick",
+        "Alien Pen Pal",
+        "Underground Fixer",
+        "Family Mentor",
+        "Rival Turned Friend",
+    ]
+    UI.section("Choose a key ally")
+    return prompt_choice("", allies)
+
+
+def apply_blake_walker_cheats(profile: dict) -> dict:
+    if profile["Name"].lower() != "blake walker":
+        return profile
+    UI.section("Blake Walker cheat options unlocked")
+    cheat_options = [
+        "Max out all stats to 10",
+        "Gain all focus skills",
+        "Gain all starting gear",
+        "Unlock every starting alien",
+        "Double your background and origin bonuses",
+        "Add a legendary Omnitrix perk",
+    ]
+    chosen = []
+    while True:
+        print("Select cheat options (choose as many as you want).")
+        remaining = [option for option in cheat_options if option not in chosen]
+        remaining.append("Finish cheat selection")
+        pick = prompt_choice("", remaining)
+        if pick == "Finish cheat selection":
+            break
+        chosen.append(pick)
+        print(f"Added: {pick}")
+
+    if "Max out all stats to 10" in chosen:
+        for stat in profile["Stats"]:
+            profile["Stats"][stat] = 10
+    if "Gain all focus skills" in chosen:
+        profile["Focuses"] = [
+            "Leadership",
+            "Engineering",
+            "Survival",
+            "Investigation",
+            "Diplomacy",
+            "Stealth",
+            "Athletics",
+            "First Aid",
+            "Alien Lore",
+            "Driving",
+        ]
+    if "Gain all starting gear" in chosen:
+        profile["Gear"] = [
+            "Plumber Badge (access to Plumber channels)",
+            "Prototype Scanner (detects alien signals)",
+            "Gwen's Spellbook Copy (basic wards)",
+            "Kevin's Toolkit (repair & sabotage)",
+            "Max's Road Atlas (safe houses)",
+            "Custom Communicator (encrypted)",
+        ]
+    if "Unlock every starting alien" in chosen:
+        profile["Aliens"] = [
+            "Heatblast",
+            "Four Arms",
+            "XLR8",
+            "Diamondhead",
+            "Grey Matter",
+            "Cannonbolt",
+            "Wildvine",
+            "Upgrade",
+            "Ripjaws",
+            "Ghostfreak",
+        ]
+    if "Double your background and origin bonuses" in chosen:
+        combined = {}
+        for source in (profile["Background Bonuses"], profile["Origin Bonuses"]):
+            for stat, bonus in source.items():
+                combined[stat] = combined.get(stat, 0) + bonus
+        for stat, bonus in combined.items():
+            profile["Stats"][stat] = min(10, profile["Stats"][stat] + bonus)
+    if "Add a legendary Omnitrix perk" in chosen:
+        profile["Omnitrix Perk"] = "Legendary Sync: once per chapter, evolve an alien."
+    profile["Cheats Enabled"] = chosen
+    return profile
+
+
 def choose_omnitrix_mode() -> str:
     options = [
         "Proto-Omnitrix (unstable, high risk/high reward)",
         "Calibrated Omnitrix (balanced, reliable)",
         "Custom Codon Harness (experimental, tactical boosts)",
     ]
-    print(LINE)
-    print("Choose your Omnitrix variant:")
+    UI.section("Choose your Omnitrix variant")
     return prompt_choice("", options)
 
 
@@ -293,13 +471,20 @@ def build_character() -> dict:
     print(LINE)
     background = choose_background()
     stats = allocate_stats()
-    for stat, bonus in {**background["bonuses"], **origin["bonuses"]}.items():
+    combined_bonuses = {}
+    for source in (background["bonuses"], origin["bonuses"]):
+        for stat, bonus in source.items():
+            combined_bonuses[stat] = combined_bonuses.get(stat, 0) + bonus
+    for stat, bonus in combined_bonuses.items():
         stats[stat] = min(10, stats[stat] + bonus)
     quirks = choose_quirks()
     focuses = choose_focuses()
     gear = choose_starting_gear()
     aliens = choose_alien_roster()
     omnitrix = choose_omnitrix_mode()
+    goal = choose_goal()
+    flaw = choose_flaw()
+    ally = choose_ally()
 
     print(LINE)
     print("Optional: Assign a signature move.")
@@ -308,16 +493,22 @@ def build_character() -> dict:
     profile = {
         "Name": name,
         "Origin": origin,
+        "Origin Bonuses": origin["bonuses"],
         "Background": background["name"],
+        "Background Specialty": background["subtype"],
+        "Background Bonuses": background["bonuses"],
         "Quirks": quirks,
         "Focuses": focuses,
         "Gear": gear,
         "Aliens": aliens,
         "Omnitrix": omnitrix,
         "Signature Move": signature_move or "None",
+        "Goal": goal,
+        "Flaw": flaw,
+        "Ally": ally,
         "Stats": stats,
     }
-    return profile
+    return apply_blake_walker_cheats(profile)
 
 
 def show_profile(profile: dict) -> None:
@@ -329,7 +520,12 @@ def show_profile(profile: dict) -> None:
         if isinstance(value, dict):
             value = value["name"]
         print(f"{key}: {value}")
+    print(f"Origin Lineage: {profile['Origin']['subspecies']}")
     print(f"Origin Feature: {profile['Origin']['feature']}")
+    print(f"Background Specialty: {profile['Background Specialty']}")
+    print(f"Goal: {profile['Goal']}")
+    print(f"Flaw: {profile['Flaw']}")
+    print(f"Key Ally: {profile['Ally']}")
     print("Quirks:")
     for quirk in profile["Quirks"]:
         print(f"  - {quirk}")
@@ -345,6 +541,12 @@ def show_profile(profile: dict) -> None:
     print("Stats:")
     for stat, value in profile["Stats"].items():
         print(f"  {stat}: {value}")
+    if "Omnitrix Perk" in profile:
+        print(f"Omnitrix Perk: {profile['Omnitrix Perk']}")
+    if "Cheats Enabled" in profile:
+        print("Cheats Enabled:")
+        for cheat in profile["Cheats Enabled"]:
+            print(f"  - {cheat}")
 
 
 def opening_scene(profile: dict) -> None:

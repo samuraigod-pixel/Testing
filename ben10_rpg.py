@@ -494,6 +494,7 @@ def build_player_profile(profile: dict) -> dict:
     profile["Completed Missions"] = 0
     profile["Day"] = 1
     profile["Time"] = "Morning"
+    profile["Housing"] = "Rustbucket Bunk"
     return profile
 
 
@@ -541,6 +542,8 @@ def build_world() -> dict:
                 "Downtown",
                 "Lake Park",
                 "Grocery Strip",
+                "Library",
+                "Arcade",
             ],
             "shops": ["Snack Stand"],
         },
@@ -556,13 +559,23 @@ def build_world() -> dict:
         },
         "Downtown": {
             "desc": "Crowded city center with tech shops and chaos.",
-            "connections": ["Bellwood", "Lake Park", "Tech Market"],
+            "connections": ["Bellwood", "Lake Park", "Tech Market", "Old Docks"],
             "shops": ["Tech Market"],
         },
         "Lake Park": {
             "desc": "Quiet trails hiding strange energy readings.",
             "connections": ["Bellwood", "Downtown"],
             "shops": ["Park Kiosk"],
+        },
+        "Library": {
+            "desc": "Stacks of records, local legends, and quiet study.",
+            "connections": ["Bellwood"],
+            "shops": ["Book Nook"],
+        },
+        "Arcade": {
+            "desc": "Retro machines, glowsticks, and competitive chatter.",
+            "connections": ["Bellwood"],
+            "shops": ["Prize Counter"],
         },
         "Grocery Strip": {
             "desc": "A row of corner stores with local rumors.",
@@ -571,8 +584,13 @@ def build_world() -> dict:
         },
         "Tech Market": {
             "desc": "A neon corridor packed with gadgets and smugglers.",
-            "connections": ["Downtown"],
+            "connections": ["Downtown", "Old Docks"],
             "shops": ["Black Box Dealer", "Repair Bay"],
+        },
+        "Old Docks": {
+            "desc": "Foggy piers where smugglers test alien tech.",
+            "connections": ["Downtown", "Tech Market"],
+            "shops": ["Dockside Salvage"],
         },
         "Null Void Gate": {
             "desc": "A volatile portal to the Null Void.",
@@ -666,6 +684,27 @@ def mission_templates() -> list[dict]:
             "difficulty": 1,
             "summary": "Find missing tech stashed near local shops.",
         },
+        {
+            "name": "Arcade Power Surge",
+            "location": "Arcade",
+            "reward": {"Credits": 14, "Reputation": ("Bellwood", 1)},
+            "difficulty": 1,
+            "summary": "A surge fries the arcade; stabilize the power core.",
+        },
+        {
+            "name": "Dockside Smuggler Chase",
+            "location": "Old Docks",
+            "reward": {"Credits": 24, "Reputation": ("Underground", 1)},
+            "difficulty": 2,
+            "summary": "Intercept smugglers moving unstable tech crates.",
+        },
+        {
+            "name": "Library Lore Hunt",
+            "location": "Library",
+            "reward": {"Credits": 10, "Reputation": ("Bellwood", 1)},
+            "difficulty": 1,
+            "summary": "Cross-reference alien myths for a hidden clue.",
+        },
     ]
 
 
@@ -681,6 +720,140 @@ def generate_mission(day: int, seed_offset: int = 0) -> dict:
         "summary": template["summary"],
         "status": "Available",
     }
+
+
+def npc_roster() -> list[dict]:
+    return [
+        {"name": "Tessa James", "role": "Plumber Analyst", "location": "Plumber HQ"},
+        {"name": "Rook Blonko", "role": "Field Ally", "location": "Rustbucket"},
+        {"name": "Mira Chen", "role": "Tech Vendor", "location": "Tech Market"},
+        {"name": "Jax Harper", "role": "Arcade Champ", "location": "Arcade"},
+        {"name": "Eli Grant", "role": "Dock Scout", "location": "Old Docks"},
+        {"name": "Layla Pierce", "role": "Librarian", "location": "Library"},
+        {"name": "Noah Banks", "role": "Street Medic", "location": "Grocery Strip"},
+        {"name": "Faye Korr", "role": "Alien Liaison", "location": "Bellwood"},
+    ]
+
+
+def dialogue_snippets() -> dict:
+    return {
+        "Plumber Analyst": [
+            "Intel shows a new drone signature near the lake.",
+            "Plumber channels are buzzing about a Null Void tremor.",
+            "We could use a reliable operative today.",
+        ],
+        "Field Ally": [
+            "Stick close, and we can tag-team any threat.",
+            "The Omnitrix feels different today, doesn't it?",
+            "We should scout before we commit.",
+        ],
+        "Tech Vendor": [
+            "I've got parts nobody else can source.",
+            "Don't ask where I got this scanner.",
+            "If it sparks, you didn't see me.",
+        ],
+        "Arcade Champ": [
+            "Beat my score and I'll share a secret.",
+            "I practice reflexes here. Want to race?",
+            "There's a glitch in machine four. It's weird.",
+        ],
+        "Dock Scout": [
+            "The fog hides more than fish.",
+            "Smugglers are active again tonight.",
+            "Some crates hum when nobody's around.",
+        ],
+        "Librarian": [
+            "Knowledge is power, hero.",
+            "These pages mention a lost codon cache.",
+            "Quiet minds hear the Omnitrix hum.",
+        ],
+        "Street Medic": [
+            "Stay safe out there. Bandages are cheap.",
+            "I saw a kid with glowing eyes today.",
+            "Rest when you can. Heroes burn out.",
+        ],
+        "Alien Liaison": [
+            "Alien communities want to feel safe too.",
+            "Peace comes from understanding.",
+            "Some species fear the Omnitrix. Be gentle.",
+        ],
+    }
+
+
+def meet_npc(profile: dict, current: str) -> None:
+    roster = [npc for npc in npc_roster() if npc["location"] == current]
+    if not roster:
+        print("No one notable is around right now.")
+        return
+    options = [f"{npc['name']} ({npc['role']})" for npc in roster] + ["Leave"]
+    choice = prompt_choice("Who do you want to talk to?", options)
+    if choice == "Leave":
+        return
+    selected = roster[options.index(choice)]
+    snippets = dialogue_snippets().get(selected["role"], ["Hello there."])
+    line = random.choice(snippets)
+    UI.section(f"Conversation: {selected['name']}")
+    print(wrap(line))
+    profile["Resources"]["Resolve"] += 1
+    profile["Experience"] += 1
+
+
+def housing_options() -> dict:
+    return {
+        "Rustbucket Bunk": {"cost": 0, "bonus": "Recover +1 Energy on rest."},
+        "Bellwood Bedroom": {"cost": 5, "bonus": "Recover +1 Resolve on rest."},
+        "Plumber Quarters": {"cost": 8, "bonus": "Gain +1 Reputation with Plumbers."},
+    }
+
+
+def choose_housing(profile: dict) -> None:
+    UI.section("Housing")
+    options = list(housing_options().keys()) + ["Keep current"]
+    choice = prompt_choice("Pick housing", options)
+    if choice == "Keep current":
+        return
+    info = housing_options()[choice]
+    if profile["Resources"]["Credits"] < info["cost"]:
+        print("Not enough credits.")
+        return
+    profile["Resources"]["Credits"] -= info["cost"]
+    profile["Housing"] = choice
+    print(f"Updated housing to {choice}.")
+
+
+def apply_housing_bonus(profile: dict) -> None:
+    housing = profile.get("Housing", "Rustbucket Bunk")
+    if housing == "Rustbucket Bunk":
+        profile["Resources"]["Energy"] = min(15, profile["Resources"]["Energy"] + 1)
+    elif housing == "Bellwood Bedroom":
+        profile["Resources"]["Resolve"] = min(10, profile["Resources"]["Resolve"] + 1)
+    elif housing == "Plumber Quarters":
+        profile["Reputation"]["Plumbers"] += 1
+
+
+def crafting_recipes() -> dict:
+    return {
+        "Improvised Medkit": {"requires": ["Bandages", "Spare Parts"], "bonus": "Heal +5"},
+        "Signal Booster": {"requires": ["Encrypted Chip", "Battery Pack"], "bonus": "Gain +2 Energy"},
+        "Armor Plating": {"requires": ["Armor Patch", "Spare Parts"], "bonus": "Gain +2 Health"},
+    }
+
+
+def craft_item(profile: dict) -> None:
+    UI.section("Crafting")
+    recipes = crafting_recipes()
+    options = list(recipes.keys()) + ["Leave"]
+    choice = prompt_choice("Craft what?", options)
+    if choice == "Leave":
+        return
+    recipe = recipes[choice]
+    if not all(item in profile["Inventory"] for item in recipe["requires"]):
+        print("Missing required items.")
+        return
+    for item in recipe["requires"]:
+        profile["Inventory"].remove(item)
+    profile["Inventory"].append(choice)
+    print(f"Crafted: {choice} ({recipe['bonus']})")
 
 
 def roll_event_index(seed: int, size: int) -> int:
@@ -715,6 +888,7 @@ def show_player_profile(profile: dict) -> None:
         print("Active Missions:")
         for mission in profile["Active Missions"]:
             print(f"  - {mission['name']} ({mission['status']})")
+    print(f"Housing: {profile.get('Housing', 'Rustbucket Bunk')}")
     print("Abilities:")
     for ability in profile["Abilities"]:
         print(f"  - {ability}")
@@ -758,6 +932,9 @@ def get_shop_inventory(shop: str) -> dict:
         "Corner Mart": {"Bandages": 6, "Flashlight": 7},
         "Black Box Dealer": {"Encrypted Chip": 20, "Pulse Grenade": 22},
         "Repair Bay": {"Armor Patch": 9, "Battery Pack": 11},
+        "Book Nook": {"Field Guide": 8, "Ancient Folio": 12},
+        "Prize Counter": {"Arcade Token Pack": 4, "Stamina Soda": 6},
+        "Dockside Salvage": {"Rusty Shield": 10, "Harbor Map": 8},
     }
     return inventories.get(shop, {})
 
@@ -884,6 +1061,7 @@ def rest(profile: dict) -> None:
     profile["Resources"]["Resolve"] = min(
         10, profile["Resources"]["Resolve"] + 2
     )
+    apply_housing_bonus(profile)
     print("You take a breather and recover energy.")
 
 
@@ -918,6 +1096,9 @@ def play_game(profile: dict) -> None:
                 "Take Mission",
                 "Attempt Mission",
                 "Work Part-time",
+                "Meet NPC",
+                "Craft",
+                "Housing",
                 "View Map",
                 "End Day",
                 "End Adventure",
@@ -940,6 +1121,12 @@ def play_game(profile: dict) -> None:
             attempt_mission(profile, current_location)
         elif action == "Work Part-time":
             work_part_time(profile)
+        elif action == "Meet NPC":
+            meet_npc(profile, current_location)
+        elif action == "Craft":
+            craft_item(profile)
+        elif action == "Housing":
+            choose_housing(profile)
         elif action == "View Map":
             show_map(world)
         elif action == "End Day":

@@ -33,6 +33,10 @@ class GameUI:
     def pause(self) -> None:
         input("\nPress Enter to continue...")
 
+    def menu(self, title: str, options: list[str]) -> str:
+        self.section(title)
+        return prompt_choice("", options)
+
 
 UI = GameUI()
 
@@ -464,6 +468,234 @@ def choose_omnitrix_mode() -> str:
     return prompt_choice("", options)
 
 
+def build_player_profile(profile: dict) -> dict:
+    derived = {
+        "Health": 20 + profile["Stats"]["Stamina"] * 2,
+        "Energy": 10 + profile["Stats"]["Willpower"],
+        "Resolve": 5 + profile["Stats"]["Empathy"],
+        "Credits": 50 + profile["Stats"]["Tactics"] * 5,
+    }
+    profile["Resources"] = derived
+    profile["Experience"] = 0
+    profile["Level"] = 1
+    return profile
+
+
+def build_skill_list(profile: dict) -> dict:
+    stats = profile["Stats"]
+    skills = {
+        "Brawl": stats["Strength"] + profile["Level"],
+        "Athletics": stats["Agility"] + profile["Level"],
+        "Endurance": stats["Stamina"] + profile["Level"],
+        "Engineering": stats["Tech"] + profile["Level"],
+        "Focus": stats["Willpower"] + profile["Level"],
+        "Research": stats["Knowledge"] + profile["Level"],
+        "Empathy": stats["Empathy"] + profile["Level"],
+        "Tactics": stats["Tactics"] + profile["Level"],
+    }
+    profile["Skills"] = skills
+    return profile
+
+
+def build_abilities(profile: dict) -> dict:
+    origin = profile["Origin"]["name"]
+    base_abilities = {
+        "Human": ["Adaptive Push (reroll a check)"],
+        "Half-Alien": ["Hybrid Instinct (ignore fatigue once)"],
+        "Alien": ["Outworlder Insight (alien tech advantage)"],
+    }
+    omnitrix_boon = {
+        "Proto-Omnitrix (unstable, high risk/high reward)": "Overclock Shift",
+        "Calibrated Omnitrix (balanced, reliable)": "Stabilized Shift",
+        "Custom Codon Harness (experimental, tactical boosts)": "Tactical Shift",
+    }
+    abilities = list(base_abilities.get(origin, []))
+    abilities.append(omnitrix_boon.get(profile["Omnitrix"], "Omnitrix Shift"))
+    profile["Abilities"] = abilities
+    return profile
+
+
+def build_world() -> dict:
+    return {
+        "Bellwood": {
+            "desc": "Home streets, familiar faces, and hidden threats.",
+            "connections": ["Rustbucket", "Plumber HQ", "Downtown", "Lake Park"],
+        },
+        "Rustbucket": {
+            "desc": "Max's RV and the team's mobile base.",
+            "connections": ["Bellwood", "Plumber HQ"],
+        },
+        "Plumber HQ": {
+            "desc": "Secure hub for Plumber operations and intel.",
+            "connections": ["Rustbucket", "Bellwood", "Null Void Gate"],
+        },
+        "Downtown": {
+            "desc": "Crowded city center with tech shops and chaos.",
+            "connections": ["Bellwood", "Lake Park"],
+        },
+        "Lake Park": {
+            "desc": "Quiet trails hiding strange energy readings.",
+            "connections": ["Bellwood", "Downtown"],
+        },
+        "Null Void Gate": {
+            "desc": "A volatile portal to the Null Void.",
+            "connections": ["Plumber HQ"],
+        },
+    }
+
+
+def random_event_table() -> list[dict]:
+    return [
+        {
+            "name": "Drone Ambush",
+            "summary": "A rogue drone attacks, forcing a quick response.",
+            "effect": lambda state: state["Resources"].__setitem__(
+                "Energy", max(0, state["Resources"]["Energy"] - 2)
+            ),
+        },
+        {
+            "name": "Plumber Tip",
+            "summary": "A tip gives you a tactical advantage.",
+            "effect": lambda state: state["Resources"].__setitem__(
+                "Resolve", state["Resources"]["Resolve"] + 1
+            ),
+        },
+        {
+            "name": "Omnitrix Glitch",
+            "summary": "The Omnitrix flickers, draining energy.",
+            "effect": lambda state: state["Resources"].__setitem__(
+                "Energy", max(0, state["Resources"]["Energy"] - 3)
+            ),
+        },
+        {
+            "name": "Civilian Rescue",
+            "summary": "You help civilians, earning goodwill.",
+            "effect": lambda state: state["Resources"].__setitem__(
+                "Credits", state["Resources"]["Credits"] + 10
+            ),
+        },
+        {
+            "name": "Alien Artifact",
+            "summary": "You find a strange artifact buzzing with power.",
+            "effect": lambda state: state["Resources"].__setitem__(
+                "Energy", state["Resources"]["Energy"] + 1
+            ),
+        },
+    ]
+
+
+def roll_event_index(seed: int, size: int) -> int:
+    return seed % size
+
+
+def resolve_random_event(state: dict, location: str) -> None:
+    events = random_event_table()
+    seed = state["Experience"] + state["Resources"]["Energy"] + len(location)
+    event = events[roll_event_index(seed, len(events))]
+    UI.section(f"Random Event: {event['name']}")
+    print(wrap(event["summary"]))
+    event["effect"](state)
+    print("Event resolved.")
+
+
+def show_player_profile(profile: dict) -> None:
+    UI.section("Player Profile")
+    print(f"Level: {profile['Level']} | XP: {profile['Experience']}")
+    for name, value in profile["Resources"].items():
+        print(f"{name}: {value}")
+    print("Abilities:")
+    for ability in profile["Abilities"]:
+        print(f"  - {ability}")
+    print("Skills:")
+    for skill, value in profile["Skills"].items():
+        print(f"  {skill}: {value}")
+
+
+def show_location(world: dict, current: str) -> None:
+    UI.section(f"Location: {current}")
+    print(wrap(world[current]["desc"]))
+    print("Connections:")
+    for idx, dest in enumerate(world[current]["connections"], start=1):
+        print(f"  {idx}. {dest}")
+
+
+def choose_location(world: dict, current: str) -> str:
+    options = world[current]["connections"]
+    return prompt_choice("Travel to:", options)
+
+
+def choose_training(profile: dict) -> None:
+    training = [
+        ("Sparring", "Brawl"),
+        ("Obstacle Course", "Athletics"),
+        ("Tech Lab", "Engineering"),
+        ("Meditation", "Focus"),
+        ("Research Session", "Research"),
+        ("Tactical Briefing", "Tactics"),
+    ]
+    UI.section("Training")
+    options = [name for name, _ in training]
+    choice = prompt_choice("Choose training", options)
+    for name, skill in training:
+        if name == choice:
+            profile["Skills"][skill] += 1
+            profile["Experience"] += 5
+            print(f"{skill} increases to {profile['Skills'][skill]}.")
+            print("You gain 5 XP.")
+            break
+
+
+def rest(profile: dict) -> None:
+    UI.section("Rest")
+    profile["Resources"]["Energy"] = min(
+        15, profile["Resources"]["Energy"] + 3
+    )
+    profile["Resources"]["Resolve"] = min(
+        10, profile["Resources"]["Resolve"] + 2
+    )
+    print("You take a breather and recover energy.")
+
+
+def apply_level_up(profile: dict) -> None:
+    while profile["Experience"] >= 20 * profile["Level"]:
+        profile["Experience"] -= 20 * profile["Level"]
+        profile["Level"] += 1
+        profile["Resources"]["Health"] += 4
+        profile["Resources"]["Energy"] += 1
+        for skill in profile["Skills"]:
+            profile["Skills"][skill] += 1
+        print(f"Level up! You reached level {profile['Level']}.")
+
+
+def play_game(profile: dict) -> None:
+    world = build_world()
+    current_location = "Bellwood"
+    turn = 1
+    while True:
+        UI.title(f"Turn {turn}: {current_location}")
+        show_location(world, current_location)
+        show_player_profile(profile)
+        action = UI.menu(
+            "Choose an action",
+            ["Travel", "Investigate (random event)", "Train", "Rest", "End Adventure"],
+        )
+        if action == "Travel":
+            current_location = choose_location(world, current_location)
+        elif action == "Investigate (random event)":
+            resolve_random_event(profile, current_location)
+            profile["Experience"] += 3
+        elif action == "Train":
+            choose_training(profile)
+        elif action == "Rest":
+            rest(profile)
+        else:
+            UI.section("Adventure Ended")
+            print("Thanks for playing!")
+            break
+        apply_level_up(profile)
+        turn += 1
+
+
 def build_character() -> dict:
     print(LINE)
     name = input("Enter your hero name: ").strip() or "Nova"
@@ -508,7 +740,11 @@ def build_character() -> dict:
         "Ally": ally,
         "Stats": stats,
     }
-    return apply_blake_walker_cheats(profile)
+    profile = apply_blake_walker_cheats(profile)
+    profile = build_player_profile(profile)
+    profile = build_skill_list(profile)
+    profile = build_abilities(profile)
+    return profile
 
 
 def show_profile(profile: dict) -> None:
@@ -547,6 +783,7 @@ def show_profile(profile: dict) -> None:
         print("Cheats Enabled:")
         for cheat in profile["Cheats Enabled"]:
             print(f"  - {cheat}")
+    show_player_profile(profile)
 
 
 def opening_scene(profile: dict) -> None:
@@ -573,6 +810,8 @@ def main() -> None:
     profile = build_character()
     show_profile(profile)
     opening_scene(profile)
+    if prompt_yes_no("Start the adventure now?"):
+        play_game(profile)
 
 
 if __name__ == "__main__":
